@@ -1,0 +1,27 @@
+version: '3.0'
+
+services:
+  db:
+    image: mariadb:10.8
+    environment:
+      MARIADB_ROOT_PASSWORD: {DB_PASSWORD}
+      MARIADB_DATABASE: metrics
+      MARIADB_USER: grafana
+      MARIADB_PASSWORD: {DB_PASSWORD}
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d
+ 
+  adminer:
+    image: adminer:latest
+    environment:
+      ADMINER_DEFAULT_DB_DRIVER: mysql
+      ADMINER_DEFAULT_DB_HOST: db
+      ADMINER_DEFAULT_DB_NAME: metrics
+      ADMINER_DESIGN: flat
+    ports:
+      - '8080:8080'
+
+  grafana:
+    image: grafana/grafana:9.1.7
+    ports:
+      - '3000:3000'
