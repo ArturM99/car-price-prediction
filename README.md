@@ -118,6 +118,5 @@ It will produce a `grafana.sql` file with the collected metrics, which can be im
 - `main.py` and `Model/pipeline.py` use the same preprocessing functions (`filter_data`, `year_outliers_clean`, `short_model`, `age_category`), so data handling is identical during training and inference.
 - The target variable is a price category (classification), not the exact car price.
 - The model is automatically selected from three candidates via cross-validation — the winning model's type is shown in the `/version` endpoint response.
--e 
 ---
 🇷🇺 [Читать на русском](https://github.com/ArturM99/car-price-prediction/tree/RU)
