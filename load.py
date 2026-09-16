@@ -8,24 +8,22 @@ import psutil
 import requests
 from tqdm import tqdm
 
-
 API_URL = "http://127.0.0.1:8002/predict"
-ITERATIONS = 720  # количество точек (например, 12 часов по минутам)
+ITERATIONS = 720  # number of data points (e.g. 12 hours, one per minute)
 
 
 def load_cpu(duration: int) -> None:
     """
-    Создаёт искусственную нагрузку на CPU в течение duration секунд.
+    Generates artificial CPU load for `duration` seconds.
     """
     start_time = time.time()
-
     while time.time() - start_time <= duration:
         _ = pow(random.randint(1, 1000), 32)
 
 
 def generate_request_payload() -> dict:
     """
-    Генерирует случайный payload для POST-запроса.
+    Generates a random payload for a POST request.
     """
     return {
         "description": "Lorem ipsum dolor sit amet",
@@ -51,56 +49,52 @@ def generate_request_payload() -> dict:
 
 def write_sql_header(file) -> None:
     """
-    Записывает SQL-структуру базы и таблицы.
+    Writes the database and table SQL schema.
     """
     header = """
-CREATE DATABASE IF NOT EXISTS metrics;
-USE metrics;
+    CREATE DATABASE IF NOT EXISTS metrics;
+    USE metrics;
 
-DROP TABLE IF EXISTS metrics;
+    DROP TABLE IF EXISTS metrics;
+    CREATE TABLE metrics (
+        timestamp DATETIME NOT NULL,
+        cpu_usage DECIMAL(5, 2) NOT NULL,
+        mem_available BIGINT NOT NULL,
+        reqs_per_min INT NOT NULL,
+        time_of_proc DECIMAL(5, 2) NOT NULL,
+        PRIMARY KEY (timestamp)
+    ) ENGINE=InnoDB;
 
-CREATE TABLE metrics (
-    timestamp DATETIME NOT NULL,
-    cpu_usage DECIMAL(5, 2) NOT NULL,
-    mem_available BIGINT NOT NULL,
-    reqs_per_min INT NOT NULL,
-    time_of_proc DECIMAL(5, 2) NOT NULL,
-    PRIMARY KEY (timestamp)
-) ENGINE=InnoDB;
-
-INSERT INTO metrics (timestamp, cpu_usage, mem_available, reqs_per_min, time_of_proc) VALUES
-"""
+    INSERT INTO metrics (timestamp, cpu_usage, mem_available, reqs_per_min, time_of_proc) VALUES
+    """
     file.write(header.strip() + "\n")
 
 
 def collect_metrics(cpu_pool: ProcessPoolExecutor, current_time: datetime.datetime):
     """
-    В течение 1 секунды:
-    - отправляет запросы
-    - считает latency
-    - считает количество запросов
+    Over the course of 1 second:
+    - sends requests
+    - measures latency
+    - counts the number of requests
     """
-
     start_time = time.time()
     latencies = []
     request_count = 0
 
     while True:
         request_start = time.time()
-
         try:
             requests.post(API_URL, json=generate_request_payload(), timeout=1)
         except requests.RequestException:
-            # если запрос упал — просто игнорируем
+            # if a request fails — just skip it
             continue
-
         request_count += 1
         latencies.append(time.time() - request_start)
 
         if time.time() - start_time > 1:
             break
 
-    # иногда создаём дополнительную нагрузку
+    # occasionally add extra CPU load
     if random.randint(0, 1):
         cpu_pool.submit(load_cpu, random.randint(1, 10))
 
@@ -113,9 +107,9 @@ def collect_metrics(cpu_pool: ProcessPoolExecutor, current_time: datetime.dateti
 
 def main(output_path: str) -> None:
     """
-    Основная функция:
-    - генерирует метрики
-    - записывает их в SQL-файл
+    Main function:
+    - generates metrics
+    - writes them to a SQL file
     """
     cpu_pool = ProcessPoolExecutor()
     current_time = datetime.datetime.utcnow() - datetime.timedelta(hours=10)
@@ -133,8 +127,8 @@ def main(output_path: str) -> None:
                 f'("{metrics[0]}", {metrics[1]}, {metrics[2]}, '
                 f'{metrics[3]}, {metrics[4]:.2f})'
             )
-
             file.flush()
+
             current_time += datetime.timedelta(minutes=1)
 
         file.write(";\n")
