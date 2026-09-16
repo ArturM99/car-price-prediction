@@ -1,34 +1,34 @@
 # Car Price Category Prediction
 
-Сервис предсказывает **ценовую категорию** подержанного автомобиля (`price_category`) по его характеристикам — модели, году выпуска, пробегу, состоянию и т.д. Помимо самой ML-модели, проект включает инфраструктуру для нагрузочного тестирования сервиса и мониторинга его состояния в реальном времени через Grafana.
+The service predicts the **price category** of a used car (`price_category`) based on its characteristics — model, year, mileage, condition, etc. Beyond the ML model itself, the project includes infrastructure for load testing the service and real-time monitoring through Grafana.
 
-## Структура проекта
+## Project structure
 
 ```
 .
-├── main.py                 # FastAPI-сервис для инференса
-├── load.py                 # генератор нагрузки + сбор метрик (CPU, память, latency)
-├── schedule.py              # периодический батч-инференс по расписанию (APScheduler)
-├── docker-compose.yml       # инфраструктура мониторинга: MariaDB + Adminer + Grafana
+├── main.py                 # FastAPI inference service
+├── load.py                 # load generator + metrics collection (CPU, memory, latency)
+├── schedule.py              # periodic batch inference on a schedule (APScheduler)
+├── docker-compose.yml       # monitoring stack: MariaDB + Adminer + Grafana
 ├── init/
-│   └── grafana.sql          # SQL-дамп с метриками для дашборда
+│   └── grafana.sql          # SQL dump with dashboard metrics
 ├── Model/
-│   ├── pipeline.py          # обучение и выбор лучшей модели
-│   ├── cars_pipe.pkl        # обученная модель (создаётся pipeline.py)
+│   ├── pipeline.py          # training and best-model selection
+│   ├── cars_pipe.pkl        # trained model (created by pipeline.py)
 │   └── Data/
-│       └── homework.csv     # исходные данные (не входит в репозиторий, см. ниже)
+│       └── homework.csv     # source data (not included in the repo, see below)
 └── requirements.txt
 ```
 
-## Установка
+## Installation
 
-```bash
+```
 python -m venv venv
 source venv/bin/activate    # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Минимальный набор зависимостей:
+Minimal dependencies:
 
 ```
 fastapi
@@ -43,43 +43,43 @@ apscheduler
 tzlocal
 ```
 
-## Данные
+## Data
 
-Файл `Model/Data/homework.csv` в репозиторий не включён (слишком большой для git). Положите датасет с объявлениями о продаже автомобилей в эту папку перед обучением модели. Ожидаемые колонки: `id`, `url`, `region`, `region_url`, `price`, `year`, `manufacturer`, `model`, `fuel`, `odometer`, `transmission`, `title_status`, `image_url`, `description`, `state`, `lat`, `long`, `posting_date`, `price_category` (целевая переменная).
+The `Model/Data/homework.csv` file is not included in the repo (too large for git). Place a dataset of used-car listings in this folder before training the model. Expected columns: `id`, `url`, `region`, `region_url`, `price`, `year`, `manufacturer`, `model`, `fuel`, `odometer`, `transmission`, `title_status`, `image_url`, `description`, `state`, `lat`, `long`, `posting_date`, `price_category` (target variable).
 
-## Обучение модели
+## Training the model
 
-```bash
+```
 python Model/pipeline.py
 ```
 
-Скрипт:
+The script:
 
-1. Читает `Model/Data/homework.csv`.
-2. Готовит признаки: убирает неинформативные колонки (`id`, `url`, `region`, `image_url`, `description` и т.д.), обрезает выбросы по году выпуска (метод межквартильного размаха), добавляет производные признаки `short_model` (первое слово из названия модели) и `age_category` (новая/средняя/старая).
-3. Кодирует категориальные признаки через `OneHotEncoder`, числовые масштабирует через `StandardScaler`.
-4. Перебирает три модели — `LogisticRegression`, `RandomForestClassifier`, `SVC` — через 4-фолдовую кросс-валидацию и выбирает лучшую по accuracy.
-5. Обучает лучшую модель на всех данных и сохраняет вместе с метаданными в `cars_pipe.pkl` (через `dill`, чтобы сохранить кастомные функции препроцессинга).
+1. Reads `Model/Data/homework.csv`.
+2. Prepares features: drops uninformative columns (`id`, `url`, `region`, `image_url`, `description`, etc.), clips outliers in the manufacture year (interquartile range method), adds derived features `short_model` (first word of the model name) and `age_category` (new/mid/old).
+3. Encodes categorical features via `OneHotEncoder`, scales numerical ones via `StandardScaler`.
+4. Compares three models — `LogisticRegression`, `RandomForestClassifier`, `SVC` — via 4-fold cross-validation and picks the best one by accuracy.
+5. Trains the best model on the full dataset and saves it together with metadata to `cars_pipe.pkl` (via `dill`, to preserve custom preprocessing functions).
 
-## Запуск API
+## Running the API
 
-```bash
+```
 uvicorn main:app --reload --host 0.0.0.0 --port 8002
 ```
 
-Swagger-документация: `http://localhost:8002/docs`
+Swagger docs: `http://localhost:8002/docs`
 
-### Эндпоинты
+### Endpoints
 
-| Метод | Путь        | Описание                                |
-|-------|-------------|-------------------------------------------|
-| GET   | `/status`   | Проверка работоспособности сервиса        |
-| GET   | `/version`  | Метаданные модели (тип модели, accuracy, дата обучения) |
-| POST  | `/predict`  | Предсказание ценовой категории по объявлению |
+| Method | Path       | Description                                       |
+| ------ | ---------- | -------------------------------------------------- |
+| GET    | `/status`  | Service health check                                |
+| GET    | `/version` | Model metadata (model type, accuracy, training date) |
+| POST   | `/predict` | Predict price category for a listing                |
 
-### Пример ответа `/predict`
+### Example `/predict` response
 
-```json
+```
 {
   "ID": 1234567890,
   "Pred": "medium",
@@ -87,35 +87,37 @@ Swagger-документация: `http://localhost:8002/docs`
 }
 ```
 
-## Нагрузочное тестирование и мониторинг
+## Load testing and monitoring
 
-Проект включает мини-стек для наблюдения за поведением сервиса под нагрузкой:
+The project includes a mini stack for observing the service's behavior under load:
 
-- **`load.py`** — раз в секунду отправляет пачку запросов на `/predict` со случайными данными, параллельно иногда создавая искусственную нагрузку на CPU, и на каждой секунде считает: загрузку CPU, доступную память, число обработанных запросов и медианную задержку ответа. Результат пишется в SQL-файл (`grafana.sql`), готовый для загрузки в базу.
-- **`docker-compose.yml`** — поднимает:
-  - `MariaDB` — хранилище собранных метрик;
-  - `Adminer` — веб-интерфейс для просмотра базы (`http://localhost:8080`);
-  - `Grafana` — дашборды для визуализации метрик (`http://localhost:3000`).
-- **`schedule.py`** — демонстрирует периодический батч-инференс: каждые 5 секунд берёт случайную выборку строк из датасета и прогоняет через модель (полезно как пример продакшн-паттерна "предсказания по расписанию", а не только по запросу).
+- **`load.py`** — sends a batch of requests to `/predict` with random data once per second, occasionally generating artificial CPU load in parallel, and every second measures: CPU usage, available memory, number of processed requests, and median response latency. Results are written to a SQL file (`grafana.sql`), ready to be loaded into the database.
+- **`docker-compose.yml`** — spins up:
+  * `MariaDB` — storage for the collected metrics;
+  * `Adminer` — a web UI for browsing the database (`http://localhost:8080`);
+  * `Grafana` — dashboards for visualizing the metrics (`http://localhost:3000`).
+- **`schedule.py`** — demonstrates periodic batch inference: every 5 seconds it takes a random sample of rows from the dataset and runs them through the model (a useful example of the "scheduled prediction" production pattern, not just on-demand).
 
-### Как запустить мониторинг
+### Running the monitoring stack
 
-```bash
+```
 docker-compose up -d
 ```
+> ⚠️ Before the first run, change the default passwords in `docker-compose.yml` (`MARIADB_ROOT_PASSWORD`, `MARIADB_PASSWORD`) — the values in the repo are only placeholders.
 
-> ⚠️ Перед первым запуском поменяйте пароли по умолчанию в `docker-compose.yml` (`MARIADB_ROOT_PASSWORD`, `MARIADB_PASSWORD`) на свои — значения в репозитории являются лишь плейсхолдерами.
+Once the service (`main.py`) and containers are running, start the load generator:
 
-После того как сервис (`main.py`) и контейнеры запущены, запустите генератор нагрузки:
-
-```bash
+```
 python load.py
 ```
 
-Он создаст файл `grafana.sql` с накопленными метриками, который можно импортировать в MariaDB через Adminer для построения дашборда в Grafana.
+It will produce a `grafana.sql` file with the collected metrics, which can be imported into MariaDB via Adminer to build a Grafana dashboard.
 
-## Важно
+## Notes
 
-- `main.py` и `Model/pipeline.py` используют одни и те же функции препроцессинга (`filter_data`, `year_outliers_clean`, `short_model`, `age_category`), поэтому обработка данных при обучении и инференсе идентична.
-- Целевая переменная — категория цены (классификация), а не точная стоимость автомобиля.
-- Модель выбирается автоматически из трёх кандидатов по кросс-валидации — тип победившей модели указан в ответе эндпоинта `/version`.
+- `main.py` and `Model/pipeline.py` use the same preprocessing functions (`filter_data`, `year_outliers_clean`, `short_model`, `age_category`), so data handling is identical during training and inference.
+- The target variable is a price category (classification), not the exact car price.
+- The model is automatically selected from three candidates via cross-validation — the winning model's type is shown in the `/version` endpoint response.
+-e 
+---
+🇷🇺 [Читать на русском](https://github.com/ArturM99/car-price-prediction/tree/ru)
