@@ -120,4 +120,4 @@ It will produce a `grafana.sql` file with the collected metrics, which can be im
 - The model is automatically selected from three candidates via cross-validation — the winning model's type is shown in the `/version` endpoint response.
 -e 
 ---
-🇷🇺 [Читать на русском](https://github.com/ArturM99/car-price-prediction/tree/ru)
+🇷🇺 [Читать на русском](https://github.com/ArturM99/car-price-prediction/tree/RU)
